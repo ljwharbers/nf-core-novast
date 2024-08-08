@@ -22,8 +22,6 @@ include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_nova
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_novast_pipeline'
 
 include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_novast_pipeline'
-include { MINIMAP2_ALIGN } from '../modules/nf-core/minimap2/align/main'
-include { MINIMAP2_INDEX } from '../modules/nf-core/minimap2/index/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
