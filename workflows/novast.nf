@@ -4,6 +4,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+include { validateParameters; paramsHelp; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema'
+
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-validation'
@@ -12,6 +14,7 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_novast_pipeline'
 include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'
 include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
+include { FLEXIPLEX              } from '../modules/local/flexiplex/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -30,10 +33,31 @@ workflow NOVAST {
     ch_multiqc_files = Channel.empty()
 
     //
+    // Create input channel from samplesheet
+    //
+    Channel.fromPath(params.input, checkIfExists: true)
+        .set { ch_samplesheet }
+
+
+    //
     // MODULE: Run FastQC
     //
+    ch_samplesheet.view()
     FASTQC (
-        ch_samplesheet
+        input
+    )
+
+    //
+    // MODULE: Run flexiplex
+    //
+    FLEXIPLEX (
+        ch_samplesheet,
+        params.adapter_5prime,
+        params.adapter_3prime,
+        params.ed_adapter_5prime,
+        params.ed_adapter_3prime,
+        params.barcode_length,
+        params.umi_length
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
@@ -60,6 +84,12 @@ workflow NOVAST {
     ch_multiqc_logo          = params.multiqc_logo ?
         Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
         Channel.empty()
+    ch_multiqc_replace_names = params.multiqc_replace_names ?
+        Channel.fromPath(params.multiqc_replace_names, checkIfExists: true) :
+        Channel.empty()
+    ch_multi_qc_sample_names = params.multiqc_sample_names ?
+        Channel.fromPath(params.multiqc_sample_names, checkIfExists: true) :
+        Channel.empty()
 
     summary_params      = paramsSummaryMap(
         workflow, parameters_schema: "nextflow_schema.json")
@@ -85,7 +115,9 @@ workflow NOVAST {
         ch_multiqc_files.collect(),
         ch_multiqc_config.toList(),
         ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList()
+        ch_multiqc_logo.toList(),
+        ch_multiqc_replace_names.toList(),
+        ch_multi_qc_sample_names.toList()
     )
 
     emit:
