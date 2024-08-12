@@ -4,7 +4,64 @@
     "title": "nf-core/novast pipeline parameters",
     "description": "nf-core pipeline for the analysis of Nova-ST data",
     "type": "object",
-    "definitions": {
+    "defs": {
+        "isoquant_options": {
+            "title": "Isoquant options",
+            "type": "object",
+            "description": "Options for IsoQuant tool",
+            "default": "",
+            "properties": {
+                "gtf": {
+                    "type": "string"
+                }
+            }
+        },
+        "flexiplex_options": {
+            "title": "Flexiplex options",
+            "type": "object",
+            "description": "Options for flexiplex tool",
+            "default": "",
+            "properties": {
+                "adapter_5prime": {
+                    "type": "string",
+                    "default": "CAGACGTGTGCTCTTCCGATCT",
+                    "description": "Adapter sequence used on 5' end of read"
+                },
+                "adapter_3prime": {
+                    "type": "string",
+                    "default": "CTACACGACGCTCTTCCGATCT",
+                    "description": "Adapter sequence used on 3' end of read"
+                },
+                "ed_adapter_5prime": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Edit distance for 5' adapter matching"
+                },
+                "ed_adapter_3prime": {
+                    "type": "integer",
+                    "default": 4,
+                    "description": "Edit distance for 3' adapter matching"
+                },
+                "barcode_length": {
+                    "type": "integer",
+                    "default": 32,
+                    "description": "Length of barcode used"
+                },
+                "umi_length": {
+                    "type": "integer",
+                    "default": 8,
+                    "description": "Length of UMI used"
+                }
+            },
+            "required": [
+                "adapter_5prime",
+                "adapter_3prime",
+                "ed_adapter_5prime",
+                "ed_adapter_3prime",
+                "barcode_length",
+                "umi_length"
+            ]
+        },
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
@@ -20,7 +77,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. See [usage docs](https://nf-co.re/novast/usage#samplesheet-input).",
+                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 2 columns, and a header row. See [usage docs](https://nf-co.re/novast/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
@@ -245,6 +302,14 @@
                     "fa_icon": "fas fa-check-square",
                     "hidden": true
                 },
+                "multiqc_replace_names": {
+                    "type": "string",
+                    "description": "Replace names for multiqc samples"
+                },
+                "multiqc_sample_names": {
+                    "type": "string",
+                    "description": "Set new names for multiqc samples"
+                },
                 "validationShowHiddenParams": {
                     "type": "boolean",
                     "fa_icon": "far fa-eye-slash",
@@ -278,19 +343,25 @@
     },
     "allOf": [
         {
-            "$ref": "#/definitions/input_output_options"
+            "$ref": "#/defs/isoquant_options"
         },
         {
-            "$ref": "#/definitions/reference_genome_options"
+            "$ref": "#/defs/flexiplex_options"
         },
         {
-            "$ref": "#/definitions/institutional_config_options"
+            "$ref": "#/defs/input_output_options"
         },
         {
-            "$ref": "#/definitions/max_job_request_options"
+            "$ref": "#/defs/reference_genome_options"
         },
         {
-            "$ref": "#/definitions/generic_options"
+            "$ref": "#/defs/institutional_config_options"
+        },
+        {
+            "$ref": "#/defs/max_job_request_options"
+        },
+        {
+            "$ref": "#/defs/generic_options"
         }
     ]
 }
