@@ -24,6 +24,16 @@
                         "branch": "master",
                         "git_sha": "b80f5fd12ff7c43938f424dd76392a2704fa2396",
                         "installed_by": ["modules"]
+                    },
+                    "nanoplot": {
+                        "branch": "master",
+                        "git_sha": "9e3292d7ec064955ab72dbaa63fbe5f45dba9f49",
+                        "installed_by": ["modules"]
+                    },
+                    "toulligqc": {
+                        "branch": "master",
+                        "git_sha": "34ac993e081b32d2170ab790d0386b74122f9d36",
+                        "installed_by": ["modules"]
                     }
                 }
             },

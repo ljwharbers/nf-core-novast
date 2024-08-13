@@ -17,6 +17,12 @@ include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
 include { FLEXIPLEX              } from '../modules/local/flexiplex/main'
 
 /*
+ * Import subworkflows
+ */
+include { QCFASTQ_NANOPLOT_FASTQC } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
+
+
+/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,19 +39,21 @@ workflow NOVAST {
     ch_multiqc_files = Channel.empty()
 
     //
-    // Create input channel from samplesheet
+    // SUBWORKFLOW: FastQC, Nanoplot, ToulligQC
     //
-    Channel.fromPath(params.input, checkIfExists: true)
-        .set { ch_samplesheet }
+    //TODO: Will there be only pretrim QC or posttrim QC as well?
+    // If only pretrim, change names for clarity
+    ch_fastqc_multiqc_pretrim = Channel.empty()
+    if (!params.skip_qc){
 
+        QCFASTQ_NANOPLOT_FASTQC ( ch_samplesheet, params.skip_nanoplot, params.skip_toulligqc, params.skip_fastqc )
 
-    //
-    // MODULE: Run FastQC
-    //
-    ch_samplesheet.view()
-    FASTQC (
-        input
-    )
+        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.nanoplot_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.toulligqc_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.fastqc_version.first().ifEmpty(null))
+
+        ch_fastqc_multiqc_pretrim = QCFASTQ_NANOPLOT_FASTQC.out.fastqc_multiqc.ifEmpty([])
+    }
 
     //
     // MODULE: Run flexiplex
@@ -59,8 +67,40 @@ workflow NOVAST {
         params.barcode_length,
         params.umi_length
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+
+    FLEXIPLEX.out.reads
+        .set { ch_flexiplex_fastq }
+
+    // TODO: fix indexing and alignment using minimap2, check other pipelines
+    // MODULE: Run MINIMAP2_INDEX
+    //
+
+    if (!params.skip_save_minimap2_index) {
+        MINIMAP2_INDEX ( fasta.map { meta, fasta -> [fasta]},  ch_bed)
+        ch_minimap_index = MINIMAP2_INDEX.out.index
+        ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions)
+    }
+
+    //
+    // MODULE: Run MINIMAP2_ALIGN
+    //
+    if (!params.skip_save_minimap2_index) {
+        ch_reference = ch_minimap_index.toList()
+    } else {
+        ch_reference = Channel.fromPath(fasta, checkIfExists: true).toList()
+    }
+    MINIMAP2_ALIGN (
+        ch_flexiplex_fastq,
+        ch_reference
+    )
+
+    ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
+    MINIMAP2_ALIGN.out.sam
+        .combine( ch_dummy_file )
+        .set { ch_minimap_sam }
+
+    //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
+    //ch_versions = ch_versions.mix(FASTQC.out.versions.first())
 
     //
     // Collate and save software versions
