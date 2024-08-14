@@ -56,7 +56,7 @@ workflow NOVAST {
     }
 
     //
-    // MODULE: Run flexiplex
+    // MODULE: Run FLEXIPLEX
     //
     FLEXIPLEX (
         ch_samplesheet,
@@ -71,12 +71,13 @@ workflow NOVAST {
     FLEXIPLEX.out.reads
         .set { ch_flexiplex_fastq }
 
+
     // TODO: fix indexing and alignment using minimap2, check other pipelines
     // MODULE: Run MINIMAP2_INDEX
     //
 
     if (!params.skip_save_minimap2_index) {
-        MINIMAP2_INDEX ( fasta.map { meta, fasta -> [fasta]},  ch_bed)
+        MINIMAP2_INDEX ( params.fasta )
         ch_minimap_index = MINIMAP2_INDEX.out.index
         ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions)
     }
@@ -98,6 +99,15 @@ workflow NOVAST {
     MINIMAP2_ALIGN.out.sam
         .combine( ch_dummy_file )
         .set { ch_minimap_sam }
+
+
+    //
+    // MODULE: Run MOVE_TAGS
+    //
+    MOVE_TAGS (
+        ch_flexiplex_fastq
+    )
+
 
     //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     //ch_versions = ch_versions.mix(FASTQC.out.versions.first())
