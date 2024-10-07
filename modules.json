@@ -30,6 +30,11 @@
                         "git_sha": "9e3292d7ec064955ab72dbaa63fbe5f45dba9f49",
                         "installed_by": ["modules"]
                     },
+                    "seqkit/split2": {
+                        "branch": "master",
+                        "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
+                        "installed_by": ["modules"]
+                    },
                     "toulligqc": {
                         "branch": "master",
                         "git_sha": "34ac993e081b32d2170ab790d0386b74122f9d36",
