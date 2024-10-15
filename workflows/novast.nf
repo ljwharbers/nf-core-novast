@@ -14,13 +14,13 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_novast_pipeline'
 include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'
 include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
-include { FLEXIPLEX              } from '../modules/local/flexiplex/main'
 
 /*
  * Import subworkflows
  */
 include { QCFASTQ_NANOPLOT_FASTQC } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
-
+include { PREPARE_REFERENCE_FILES } from '../subworkflows/local/prepare_reference_files'
+include { RUN_FLEXIPLEX           } from '../subworkflows/local/run_flexiplex'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,30 +54,60 @@ workflow NOVAST {
 
         ch_fastqc_multiqc_pretrim = QCFASTQ_NANOPLOT_FASTQC.out.fastqc_multiqc.ifEmpty([])
     }
+    
+    //
+    // SUBWORKFLOW: Prepare reference files
+    //
 
+    PREPARE_REFERENCE_FILES ( "",
+                              "",
+                              params.fasta,
+                              params.gtf )
+
+    fasta = PREPARE_REFERENCE_FILES.out.prepped_fasta
+    fai = PREPARE_REFERENCE_FILES.out.prepped_fai
+    gtf = PREPARE_REFERENCE_FILES.out.prepped_gtf
+    
+    
+    //
+    // MODULE: Run SEQKIT_SPLIT2
+    //
+    //SEQKIT_SPLIT2 (
+        
+    //)
+    
+    
     //
     // MODULE: Run FLEXIPLEX
     //
-    FLEXIPLEX (
+    RUN_FLEXIPLEX (
         ch_samplesheet,
         params.adapter_5prime,
         params.adapter_3prime,
+        params.spacer_3prime,
         params.ed_adapter_5prime,
         params.ed_adapter_3prime,
         params.barcode_length,
         params.umi_length
     )
 
-    FLEXIPLEX.out.reads
+    RUN_FLEXIPLEX.out.flexiplex_fastq
         .set { ch_flexiplex_fastq }
 
-
-    // TODO: fix indexing and alignment using minimap2, check other pipelines
+    
+    //
+    // MODULE: CATFASTQ
+    //
+    
+    
+    
+    //
     // MODULE: Run MINIMAP2_INDEX
     //
-
+    ch_minimap_index = fasta
     if (!params.skip_save_minimap2_index) {
-        MINIMAP2_INDEX ( params.fasta )
+        
+        MINIMAP2_INDEX ( fasta )
         ch_minimap_index = MINIMAP2_INDEX.out.index
         ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions)
     }
@@ -85,28 +115,24 @@ workflow NOVAST {
     //
     // MODULE: Run MINIMAP2_ALIGN
     //
-    if (!params.skip_save_minimap2_index) {
-        ch_reference = ch_minimap_index.toList()
-    } else {
-        ch_reference = Channel.fromPath(fasta, checkIfExists: true).toList()
-    }
     MINIMAP2_ALIGN (
         ch_flexiplex_fastq,
-        ch_reference
+        ch_minimap_index,
+        true,
+        'bai',
+        "",
+        ""
     )
 
     ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
-    MINIMAP2_ALIGN.out.sam
-        .combine( ch_dummy_file )
-        .set { ch_minimap_sam }
-
+    ch_minimap_bam = MINIMAP2_ALIGN.out.bam
 
     //
-    // MODULE: Run MOVE_TAGS
+    // MODULE: Run FLEXI_FORMATTER
     //
-    MOVE_TAGS (
-        ch_flexiplex_fastq
-    )
+    //MOVE_TAGS (
+     //   ch_minimap_bam
+    //)
 
 
     //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})

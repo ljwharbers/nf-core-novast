@@ -1,10 +1,10 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema",
+    "$schema": "https://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/nf-core/novast/master/nextflow_schema.json",
     "title": "nf-core/novast pipeline parameters",
     "description": "nf-core pipeline for the analysis of Nova-ST data",
     "type": "object",
-    "defs": {
+    "definitions": {
         "isoquant_options": {
             "title": "Isoquant options",
             "type": "object",
@@ -343,25 +343,39 @@
     },
     "allOf": [
         {
-            "$ref": "#/defs/isoquant_options"
+            "$ref": "#/definitions/isoquant_options"
         },
         {
-            "$ref": "#/defs/flexiplex_options"
+            "$ref": "#/definitions/flexiplex_options"
         },
         {
-            "$ref": "#/defs/input_output_options"
+            "$ref": "#/definitions/input_output_options"
         },
         {
-            "$ref": "#/defs/reference_genome_options"
+            "$ref": "#/definitions/reference_genome_options"
         },
         {
-            "$ref": "#/defs/institutional_config_options"
+            "$ref": "#/definitions/institutional_config_options"
         },
         {
-            "$ref": "#/defs/max_job_request_options"
+            "$ref": "#/definitions/max_job_request_options"
         },
         {
-            "$ref": "#/defs/generic_options"
+            "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "properties": {
+        "skip_qc": {
+            "type": "boolean"
+        },
+        "skip_nanoplot": {
+            "type": "boolean"
+        },
+        "skip_toulligqc": {
+            "type": "boolean"
+        },
+        "skip_fastqc": {
+            "type": "boolean"
+        }
+    }
 }
