@@ -11,15 +11,17 @@ process FLEXIPLEX {
     tuple val(meta), path(reads)
     val(adapter_5prime)
     val(adapter_3prime)
+    val(spacer_3prime)
     val(ed_adapter_5prime)
     val(ed_adapter_3prime)
     val(barcode_length)
     val(umi_length)
 
     output:
-    tuple val(meta), path("*flexiplex.fastq.gz")    , emit: reads
-    tuple val(meta), path("combined_*barcodes.txt") , emit: barcodes
-    path "versions.yml"                             , emit: versions
+    tuple val(meta), path("*flexiplex.fastq")        , emit: reads
+    tuple val(meta), path("bc_*_reads_barcodes.txt")    , emit: barcodes
+    tuple val(meta), path("umi_*_reads_barcodes.txt")   , emit: umis
+    path "versions.yml"                                 , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -28,34 +30,40 @@ process FLEXIPLEX {
     def args = task.ext.args ?: ''
     def args2 = task.ext.args2 ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def adapter_3prime_1 = adapter_3prime.substring(0, adapter_3prime.length() - 4)
-    def adapter_3prime_2 = adapter_3prime.substring(adapter_3prime.length() - 4)
     def barcode = '?' * barcode_length
     def umi = '?' * umi_length
-    def threads = task.cpus / 2
+    def half_threads = task.cpus / 2
     """
-    gunzip -c $reads \\
-        | flexiplex \\
-        -x $adapter_3prime_1 \\
-        -b $adapter_3prime_2 \\
-        -u $barcode \\
-        -f $ed_adapter_3prime \\
-        -e 1 \\
-        -k $adapter_3prime_2 \\
-        -p $threads \\
-        $args \\
-        -n firstpass_${prefix} \\
-        | flexiplex \\
-        -x $adapter_5prime \\
-        -u $umi \\
+    # First run flexiplex in discovery move
+    flexiplex \\
+        -x "${adapter_3prime}" \\
+        -b "${barcode}" \\
+        -x  "${spacer_3prime}" \\
+        -f ${ed_adapter_3prime} \\
+        -p ${task.cpus} \\
+        -n discovery_${prefix} \\
+        ${reads}
+
+    # Run flexiplex with provided discovered barcodes and pipe to get UMIs
+    flexiplex \\
+        -x "${adapter_3prime}" \\
+        -b "${barcode}" \\
+        -x  "${spacer_3prime}" \\
+        -k discovery_${prefix}_barcodes_counts.txt \\
+        -f ${ed_adapter_3prime} \\
+        -p ${half_threads} \\
+        -n bc_${prefix} \\
+        ${reads} | \\
+    flexiplex \\
+        -x "${adapter_5prime}" \\
+        -u "${umi}" \\
         -x "?" \\
         -b "" \\
         -k "?" \\
-        -f $ed_adapter_5prime \\
-        -n combined_${prefix} \\
-        -p $threads \\
-        $args2 \\
-        | gzip > ${prefix}.flexiplex.fastq.gz
+        -f ${ed_adapter_5prime} \\
+        -p ${half_threads} \\
+        -n umi_${prefix} \\
+        > ${prefix}_flexiplex.fastq
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
