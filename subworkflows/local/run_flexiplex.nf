@@ -35,7 +35,6 @@ workflow RUN_FLEXIPLEX {
         }
 
     
-        ch_prepared_fasta = Channel.empty()
         if (gzipped){
             PIGZ_UNCOMPRESS( reads )
 
