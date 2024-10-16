@@ -14,6 +14,7 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_novast_pipeline'
 include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'
 include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
+include { SEQKIT_SPLIT2          } from '../modules/nf-core/seqkit/split2/main'
 
 /*
  * Import subworkflows
@@ -72,16 +73,28 @@ workflow NOVAST {
     //
     // MODULE: Run SEQKIT_SPLIT2
     //
-    //SEQKIT_SPLIT2 (
-        
-    //)
+    SEQKIT_SPLIT2 (
+        ch_samplesheet
+    )
     
+    // Transpose channel
+    SEQKIT_SPLIT2.out.reads
+        .transpose()
+        .map { meta, reads ->
+              part = (reads =~ /.*part_(\d+)\.fastq(?:\.gz)?$/)[0][1]
+              newmap = [part: part]
+              [meta + newmap, reads] }
+        .set { ch_split_fastq }
+    
+    ch_split_fastq.view()
+        
+    ch_versions = ch_versions.mix(SEQKIT_SPLIT2.out.versions)
     
     //
-    // MODULE: Run FLEXIPLEX
+    // SUBWORKFLOW: RUN_FLEXIPLEX
     //
     RUN_FLEXIPLEX (
-        ch_samplesheet,
+        ch_split_fastq,
         params.adapter_5prime,
         params.adapter_3prime,
         params.spacer_3prime,
@@ -94,6 +107,7 @@ workflow NOVAST {
     RUN_FLEXIPLEX.out.flexiplex_fastq
         .set { ch_flexiplex_fastq }
 
+    ch_versions = ch_versions.mix(RUN_FLEXIPLEX.out.versions)
     
     //
     // MODULE: CATFASTQ
@@ -186,7 +200,7 @@ workflow NOVAST {
             sort: true
         )
     )
-
+    
     MULTIQC (
         ch_multiqc_files.collect(),
         ch_multiqc_config.toList(),
@@ -195,10 +209,11 @@ workflow NOVAST {
         ch_multiqc_replace_names.toList(),
         ch_multi_qc_sample_names.toList()
     )
-
+    
     emit:
     multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
     versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    
 }
 
 /*
