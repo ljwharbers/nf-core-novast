@@ -29,7 +29,7 @@ process FLEXIPLEX {
     script:
     def args = task.ext.args ?: ''
     def args2 = task.ext.args2 ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}${meta.part ? "_part_${meta.part}" : ''}"
     def barcode = '?' * barcode_length
     def umi = '?' * umi_length
     def half_threads = task.cpus / 2

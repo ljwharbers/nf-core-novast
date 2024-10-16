@@ -15,7 +15,8 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_nova
 include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'
 include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
 include { SEQKIT_SPLIT2          } from '../modules/nf-core/seqkit/split2/main'
-
+include { CAT_FASTQ              } from '../modules/nf-core/cat/fastq/main'
+ 
 /*
  * Import subworkflows
  */
@@ -77,17 +78,15 @@ workflow NOVAST {
         ch_samplesheet
     )
     
-    // Transpose channel
+    // Transpose channel and add part to metadata
     SEQKIT_SPLIT2.out.reads
-        .transpose()
-        .map { meta, reads ->
+        | transpose
+        | map { meta, reads ->
               part = (reads =~ /.*part_(\d+)\.fastq(?:\.gz)?$/)[0][1]
               newmap = [part: part]
               [meta + newmap, reads] }
-        .set { ch_split_fastq }
-    
-    ch_split_fastq.view()
-        
+        | set { ch_split_fastq }
+            
     ch_versions = ch_versions.mix(SEQKIT_SPLIT2.out.versions)
     
     //
@@ -103,17 +102,30 @@ workflow NOVAST {
         params.barcode_length,
         params.umi_length
     )
-
+    
+    // Group by ID for CATFASTQ
     RUN_FLEXIPLEX.out.flexiplex_fastq
-        .set { ch_flexiplex_fastq }
+        | map { meta, reads ->
+               [meta.subMap('id', 'single_end'), meta.part, reads] }
+        | groupTuple
+        | map { meta, part, reads -> [meta + [partcount: part.size()], reads] }
+        | set { ch_grouped_flexiplex_fastq }
+
+        //.set { ch_split_flexiplex_fastq }
 
     ch_versions = ch_versions.mix(RUN_FLEXIPLEX.out.versions)
     
     //
     // MODULE: CATFASTQ
-    //
+    //  
+    CAT_FASTQ (
+        ch_grouped_flexiplex_fastq
+    )
+    ch_versions = ch_versions.mix(CAT_FASTQ.out.versions)
     
-    
+    // Set channel
+    CAT_FASTQ.out.reads
+        | set { ch_merged_flexiplex_fastq}
     
     //
     // MODULE: Run MINIMAP2_INDEX
@@ -130,7 +142,7 @@ workflow NOVAST {
     // MODULE: Run MINIMAP2_ALIGN
     //
     MINIMAP2_ALIGN (
-        ch_flexiplex_fastq,
+        ch_merged_flexiplex_fastq,
         ch_minimap_index,
         true,
         'bai',
@@ -139,7 +151,8 @@ workflow NOVAST {
     )
 
     ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
-    ch_minimap_bam = MINIMAP2_ALIGN.out.bam
+    MINIMAP2_ALIGN.out.bam 
+        | set { ch_minimap_bam }
 
     //
     // MODULE: Run FLEXI_FORMATTER
@@ -148,7 +161,7 @@ workflow NOVAST {
      //   ch_minimap_bam
     //)
 
-
+    
     //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     //ch_versions = ch_versions.mix(FASTQC.out.versions.first())
 
