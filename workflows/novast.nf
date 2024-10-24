@@ -6,23 +6,27 @@
 
 include { validateParameters; paramsHelp; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema'
 
-include { FASTQC                 } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                } from '../modules/nf-core/multiqc/main'
-include { paramsSummaryMap       } from 'plugin/nf-validation'
-include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_novast_pipeline'
-include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'
-include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'
-include { SEQKIT_SPLIT2          } from '../modules/nf-core/seqkit/split2/main'
-include { CAT_FASTQ              } from '../modules/nf-core/cat/fastq/main'
- 
+include { FASTQC                                    } from '../modules/nf-core/fastqc/main'
+include { MULTIQC                                   } from '../modules/nf-core/multiqc/main'
+include { paramsSummaryMap                          } from 'plugin/nf-validation'
+include { paramsSummaryMultiqc                      } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { softwareVersionsToYAML                    } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { methodsDescriptionText                    } from '../subworkflows/local/utils_nfcore_novast_pipeline'
+include { MINIMAP2_ALIGN                            } from '../modules/nf-core/minimap2/align/main'
+include { MINIMAP2_INDEX                            } from '../modules/nf-core/minimap2/index/main'
+include { SEQKIT_SPLIT2                             } from '../modules/nf-core/seqkit/split2/main'
+include { CAT_FASTQ                                 } from '../modules/nf-core/cat/fastq/main'
+include { UMITOOLS_DEDUP                            } from '../modules/nf-core/umitools/dedup/main'
+include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_PRE      } from '../modules/nf-core/samtools/index/main'
+include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_POST     } from '../modules/nf-core/samtools/index/main'
+include { FLEXIFORMATTER                            } from '../modules/local/flexiformatter/main'
+
 /*
  * Import subworkflows
  */
-include { QCFASTQ_NANOPLOT_FASTQC } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
-include { PREPARE_REFERENCE_FILES } from '../subworkflows/local/prepare_reference_files'
-include { RUN_FLEXIPLEX           } from '../subworkflows/local/run_flexiplex'
+include { QCFASTQ_NANOPLOT_FASTQC                   } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
+include { PREPARE_REFERENCE_FILES                   } from '../subworkflows/local/prepare_reference_files'
+include { RUN_FLEXIPLEX                             } from '../subworkflows/local/run_flexiplex'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -157,10 +161,47 @@ workflow NOVAST {
     //
     // MODULE: Run FLEXI_FORMATTER
     //
-    //MOVE_TAGS (
-     //   ch_minimap_bam
-    //)
+    FLEXIFORMATTER (
+        ch_minimap_bam
+    )
+    ch_versions = ch_versions.mix(FLEXIFORMATTER.out.versions)
+    FLEXIFORMATTER.out.bam
+        | set { ch_tagged_bam }
+    
+    //
+    // MODULE: Run SAMTOOLS_INDEX
+    //
+    SAMTOOLS_INDEX_PRE (
+        ch_tagged_bam
+    )
+    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_PRE.out.versions)
+    SAMTOOLS_INDEX_PRE.out.bai
+        | set { ch_bai }
+    
+    //
+    // MODULE: Run UMITOOLS
+    //  
+    UMITOOLS (
+        ch_tagged_bam.join(ch_bai, by: [0]),
+        true
+    )
+    ch_versions = ch_versions.mix(UMITOOLS.out.versions)
+    UMITOOLS.out.bam
+        | set { ch_deduped_bam }
 
+    
+    //
+    // MODULE: Run SAMTOOLS_INDEX_POSTDEDUP
+    //
+    SAMTOOLS_INDEX_POST (
+        ch_deduped_bam
+    )
+    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_POST.out.versions)
+    SAMTOOLS_INDEX_POST.out.bai
+        | set { ch_dedup_bai }
+    
+    ch_deduped_bam.join(ch_dedup_bai, by: [0])
+        | set { ch_deduped_bam_bai }
     
     //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     //ch_versions = ch_versions.mix(FASTQC.out.versions.first())
