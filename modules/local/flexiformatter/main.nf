@@ -22,8 +22,8 @@ process FLEXIFORMATTER {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     flexi_formatter \\
-        ${args} \\
         ${bam} \\
+        ${args} \\
         | samtools sort -@ $task.cpus -o ${prefix}_tagged.bam -
     
     cat <<-END_VERSIONS > versions.yml

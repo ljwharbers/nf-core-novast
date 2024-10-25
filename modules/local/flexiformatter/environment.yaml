@@ -2,4 +2,4 @@ name: flexiformatter
 channels:
   - bioconda
 dependencies:
-  - bioconda::flexiformatter=1.0.1
+  - bioconda::flexiformatter=1.0.2

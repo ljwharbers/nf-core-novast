@@ -179,14 +179,14 @@ workflow NOVAST {
         | set { ch_bai }
     
     //
-    // MODULE: Run UMITOOLS
+    // MODULE: Run UMITOOLS_DEDUP
     //  
-    UMITOOLS (
+    UMITOOLS_DEDUP (
         ch_tagged_bam.join(ch_bai, by: [0]),
         true
     )
-    ch_versions = ch_versions.mix(UMITOOLS.out.versions)
-    UMITOOLS.out.bam
+    ch_versions = ch_versions.mix(UMITOOLS_DEDUP.out.versions)
+    UMITOOLS_DEDUP.out.bam
         | set { ch_deduped_bam }
 
     
