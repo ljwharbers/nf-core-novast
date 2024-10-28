@@ -4,8 +4,8 @@ process FLEXIFORMATTER {
 
     conda "${moduleDir}/environment.yaml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/flexi-formatter%3A1.0.1--pyhdfd78af_0':
-        'https://quay.io/biocontainers/flexi-formatter' }"
+        'https://depot.galaxyproject.org/singularity/flexiformatter%3A1.0.2--pyhdfd78af_0':
+        'https://quay.io/biocontainers/flexiformatter' }"
 
     input:
     tuple val(meta), path(bam)
@@ -21,14 +21,14 @@ process FLEXIFORMATTER {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    flexi_formatter \\
+    flexiformatter \\
         ${bam} \\
         ${args} \\
         | samtools sort -@ $task.cpus -o ${prefix}_tagged.bam -
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        flexi_formatter: \$(flexi_formatter version |& sed '1!d ; s/flexi_formatter version //')
+        flexiformatter: \$(flexiformatter --version |& sed '1!d ; s/flexiformatter version //')
         samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
     END_VERSIONS
     """
@@ -41,7 +41,7 @@ process FLEXIFORMATTER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        flexi_formatter: \$(flexi_formatter version |& sed '1!d ; s/flexi_formatter version //')
+        flexiformatter: \$(flexiformatter --version |& sed '1!d ; s/flexiformatter version //')
         samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
     END_VERSIONS
     """
