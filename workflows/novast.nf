@@ -3,7 +3,7 @@
     CONFIG FILES
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-/*
+
 ch_multiqc_config                       = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 ch_multiqc_custom_config                = params.multiqc_config ? Channel.fromPath( params.multiqc_config, checkIfExists: true ) : Channel.empty()
 ch_multiqc_logo                         = params.multiqc_logo   ? Channel.fromPath( params.multiqc_logo, checkIfExists: true ) : Channel.empty()
@@ -32,8 +32,7 @@ include { SEQKIT_SPLIT2                             } from '../modules/nf-core/s
 include { CAT_FASTQ as CAT_FASTQ_SAMPLE             } from '../modules/nf-core/cat/fastq/main'
 include { CAT_FASTQ as CAT_FASTQ_SEQSPLIT           } from '../modules/nf-core/cat/fastq/main'
 include { UMITOOLS_DEDUP                            } from '../modules/nf-core/umitools/dedup/main'
-include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_PRE      } from '../modules/nf-core/samtools/index/main'
-include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_POST     } from '../modules/nf-core/samtools/index/main'
+include { SAMTOOLS_INDEX                            } from '../modules/nf-core/samtools/index/main'
 include { FLEXIFORMATTER                            } from '../modules/local/flexiformatter/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS               } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { NANOCOMP as NANOCOMP_FASTQ                } from '../modules/nf-core/nanocomp/main' 
@@ -45,6 +44,7 @@ include { NANOCOMP as NANOCOMP_BAM                  } from '../modules/nf-core/n
 include { QCFASTQ_NANOPLOT_FASTQC                   } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
 include { PREPARE_REFERENCE_FILES                   } from '../subworkflows/local/prepare_reference_files'
 include { RUN_FLEXIPLEX                             } from '../subworkflows/local/run_flexiplex'
+include { BAM_SORT_STATS_SAMTOOLS                   } from '../subworkflows/nf-core/bam_sort_stats_samtools/main' 
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,7 +224,7 @@ workflow NOVAST {
     ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
     MINIMAP2_ALIGN.out.bam 
         | set { ch_minimap_bam }
-
+    
     //
     // MODULE: Run FLEXI_FORMATTER
     //
@@ -235,16 +235,24 @@ workflow NOVAST {
     FLEXIFORMATTER.out.bam
         | set { ch_tagged_bam }
     
-    //
-    // MODULE: Run SAMTOOLS_INDEX
-    //
-    SAMTOOLS_INDEX_PRE (
-        ch_tagged_bam
-    )
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_PRE.out.versions)
-    SAMTOOLS_INDEX_PRE.out.bai
-        | set { ch_bai }
     
+    //
+    // SUBWORKFLOW: BAM_SORT_STATS_SAMTOOLS
+    // 
+    BAM_SORT_STATS_SAMTOOLS_MINIMAP (
+        ch_tagged_bam,
+        fasta )
+    
+    ch_minimap_sorted_bam = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.bam
+    ch_minimap_sorted_bai = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.bai
+
+    // these stats go for multiqc
+    ch_minimap_sorted_stats = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.stats
+    ch_minimap_sorted_flagstat = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.flagstat
+    ch_minimap_sorted_idxstats = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.idxstats
+    ch_versions = ch_versions.mix(BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.versions)
+    
+
     //
     // MODULE: NanoComp for BAM files (unfiltered for QC purposes)
     //
@@ -283,11 +291,11 @@ workflow NOVAST {
     //
     // MODULE: Run SAMTOOLS_INDEX_POSTDEDUP
     //
-    SAMTOOLS_INDEX_POST (
+    SAMTOOLS_INDEX (
         ch_deduped_bam
     )
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX_POST.out.versions)
-    SAMTOOLS_INDEX_POST.out.bai
+    ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions)
+    SAMTOOLS_INDEX.out.bai
         | set { ch_dedup_bai }
     
     ch_deduped_bam.join(ch_dedup_bai, by: [0])
