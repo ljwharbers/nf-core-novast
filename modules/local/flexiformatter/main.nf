@@ -28,7 +28,7 @@ process FLEXIFORMATTER {
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        flexiformatter: \$(flexiformatter --version |& sed '1!d ; s/flexiformatter version //')
+        flexiformatter: \$(echo \$(flexiformatter --version) |& sed 's/flexi_formatter version: //')
         samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
     END_VERSIONS
     """
@@ -41,7 +41,7 @@ process FLEXIFORMATTER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        flexiformatter: \$(flexiformatter --version |& sed '1!d ; s/flexiformatter version //')
+        flexiformatter: \$(flexiformatter --version |& sed 's/flexi_formatter version: //')
         samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
     END_VERSIONS
     """

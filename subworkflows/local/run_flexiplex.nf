@@ -2,9 +2,9 @@
 // Creates gtfs to that add introns as features
 //
 
-include { PIGZ_UNCOMPRESS } from '../../modules/nf-core/pigz/uncompress/main'
-include { PIGZ_COMPRESS } from '../../modules/nf-core/pigz/compress/main'
-include { FLEXIPLEX       } from '../../modules/local/flexiplex/main'
+include { PIGZ_UNCOMPRESS   } from '../../modules/nf-core/pigz/uncompress/main'
+include { PIGZ_COMPRESS     } from '../../modules/nf-core/pigz/compress/main'
+include { FLEXIPLEX         } from '../../modules/local/flexiplex/main'
 
 workflow RUN_FLEXIPLEX {
     take:

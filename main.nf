@@ -17,7 +17,7 @@ nextflow.enable.dsl = 2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { NOVAST  } from './workflows/novast'
+include { NOVAST                  } from './workflows/novast'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_novast_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_novast_pipeline'
 

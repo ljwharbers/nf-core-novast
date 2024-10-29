@@ -10,6 +10,11 @@
                         "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
                         "installed_by": ["modules"]
                     },
+                    "custom/dumpsoftwareversions": {
+                        "branch": "master",
+                        "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
+                        "installed_by": ["modules"]
+                    },
                     "fastqc": {
                         "branch": "master",
                         "git_sha": "46eca555142d6e597729fcb682adcc791796f514",
@@ -28,6 +33,11 @@
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "b80f5fd12ff7c43938f424dd76392a2704fa2396",
+                        "installed_by": ["modules"]
+                    },
+                    "nanocomp": {
+                        "branch": "master",
+                        "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
                         "installed_by": ["modules"]
                     },
                     "nanoplot": {
