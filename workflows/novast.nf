@@ -29,22 +29,28 @@ include { methodsDescriptionText                    } from '../subworkflows/loca
 include { MINIMAP2_ALIGN                            } from '../modules/nf-core/minimap2/align/main'
 include { MINIMAP2_INDEX                            } from '../modules/nf-core/minimap2/index/main'
 include { SEQKIT_SPLIT2                             } from '../modules/nf-core/seqkit/split2/main'
+include { SEQKIT_STATS as SEQKIT_STATS_PRE          } from '../modules/nf-core/seqkit/stats/main'
+include { SEQKIT_STATS as SEQKIT_STATS_POST         } from '../modules/nf-core/seqkit/stats/main'
 include { CAT_FASTQ as CAT_FASTQ_SAMPLE             } from '../modules/nf-core/cat/fastq/main'
 include { CAT_FASTQ as CAT_FASTQ_SEQSPLIT           } from '../modules/nf-core/cat/fastq/main'
 include { UMITOOLS_DEDUP                            } from '../modules/nf-core/umitools/dedup/main'
-include { SAMTOOLS_INDEX                            } from '../modules/nf-core/samtools/index/main'
 include { FLEXIFORMATTER                            } from '../modules/local/flexiformatter/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS               } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { NANOCOMP as NANOCOMP_FASTQ                } from '../modules/nf-core/nanocomp/main' 
 include { NANOCOMP as NANOCOMP_BAM                  } from '../modules/nf-core/nanocomp/main' 
+include { RSEQC_READDISTRIBUTION                    } from '../modules/nf-core/rseqc/readdistribution/main'
+include { UCSC_GTFTOGENEPRED                        } from "../modules/local/ucsc_gtftogenepred"
+include { UCSC_GENEPREDTOBED                        } from "../modules/local/ucsc_genepredtobed"
 
 /*
  * Import subworkflows
  */
-include { QCFASTQ_NANOPLOT_FASTQC                   } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
-include { PREPARE_REFERENCE_FILES                   } from '../subworkflows/local/prepare_reference_files'
-include { RUN_FLEXIPLEX                             } from '../subworkflows/local/run_flexiplex'
-include { BAM_SORT_STATS_SAMTOOLS                   } from '../subworkflows/nf-core/bam_sort_stats_samtools/main' 
+include { QCFASTQ_NANOPLOT_FASTQC as FASTQC_NANOPLOT_PRE_FLEXIPLEX     } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
+include { QCFASTQ_NANOPLOT_FASTQC as FASTQC_NANOPLOT_POST_FLEXIPLEX    } from '../subworkflows/nf-core/toulligqc_nanoplot_fastqc'
+include { PREPARE_REFERENCE_FILES                                      } from '../subworkflows/local/prepare_reference_files'
+include { RUN_FLEXIPLEX                                                } from '../subworkflows/local/run_flexiplex'
+include { BAM_SORT_STATS_SAMTOOLS as BAM_SORT_STATS_SAMTOOLS_MINIMAP   } from '../subworkflows/nf-core/bam_sort_stats_samtools/main' 
+include { BAM_SORT_STATS_SAMTOOLS as BAM_SORT_STATS_SAMTOOLS_DEDUP     } from '../subworkflows/nf-core/bam_sort_stats_samtools/main' 
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -89,26 +95,38 @@ workflow NOVAST {
     ch_versions = ch_versions.mix (CAT_FASTQ_SAMPLE.out.versions.first().ifEmpty(null))
     
     //
-    // SUBWORKFLOW: FastQC, Nanoplot, ToulligQC
+    // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - Pre Flexiplex
     //
-    //TODO: Will there be only pretrim QC or posttrim QC as well?
-    // If only pretrim, change names for clarity
-    ch_fastqc_multiqc_pretrim = Channel.empty()
+    ch_fastqc_multiqc_pre_flexiplex = Channel.empty()
+    ch_seqkit_stats_pre = Channel.empty()
     if (!params.skip_qc){
+        FASTQC_NANOPLOT_PRE_FLEXIPLEX (
+            ch_cat_fastq,
+            params.skip_nanoplot,
+            params.skip_toulligqc,
+            params.skip_fastqc
+        )
 
-        QCFASTQ_NANOPLOT_FASTQC ( ch_cat_fastq, params.skip_nanoplot, params.skip_toulligqc, params.skip_fastqc )
-
-        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.nanoplot_version.first().ifEmpty(null))
-        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.toulligqc_version.first().ifEmpty(null))
-        ch_versions = ch_versions.mix(QCFASTQ_NANOPLOT_FASTQC.out.fastqc_version.first().ifEmpty(null))
-
-        ch_fastqc_multiqc_pretrim = QCFASTQ_NANOPLOT_FASTQC.out.fastqc_multiqc.ifEmpty([])
+        ch_fastqc_multiqc_pre_flexiplex = FASTQC_NANOPLOT_PRE_FLEXIPLEX.out.fastqc_multiqc.ifEmpty([])
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_PRE_FLEXIPLEX.out.nanoplot_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_PRE_FLEXIPLEX.out.toulligqc_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_PRE_FLEXIPLEX.out.fastqc_version.first().ifEmpty(null))
+        
+        SEQKIT_STATS_PRE (
+            ch_cat_fastq
+        )
+        ch_seqkit_stats_pre = SEQKIT_STATS_PRE.out.stats
+        ch_versions = ch_versions.mix(SEQKIT_STATS_PRE.out.versions.first().ifEmpty(null))
+        
     }
-    
     //
     // MODULE: NanoComp for FastQ files
     //
-
+    ch_cat_fastq
+        .collect{it[1]}
+        .map {
+        [ [ 'id': 'nanocomp_fastq.' ] , it ]
+        }
     ch_nanocomp_fastq_html = Channel.empty()
     ch_nanocomp_fastq_txt = Channel.empty()
     if (!params.skip_qc && !params.skip_fastq_nanocomp) {
@@ -132,15 +150,34 @@ workflow NOVAST {
     // SUBWORKFLOW: Prepare reference files
     //
 
-    PREPARE_REFERENCE_FILES ( "",
-                              "",
-                              params.fasta,
-                              params.gtf )
+    PREPARE_REFERENCE_FILES (
+        "",
+        "",
+        params.fasta,
+        params.gtf
+    )
 
     fasta = PREPARE_REFERENCE_FILES.out.prepped_fasta
     fai = PREPARE_REFERENCE_FILES.out.prepped_fai
     gtf = PREPARE_REFERENCE_FILES.out.prepped_gtf
     
+    
+    //
+    // MODULE: Generate bed file from input gtf for rseqc
+    //
+
+    // come back to this once intron work is finished (likely input will be fine)
+    ch_pred = Channel.empty()
+    ch_rseqc_bed = Channel.empty()
+    if (!params.skip_qc && !params.skip_rseqc) {
+        UCSC_GTFTOGENEPRED( params.gtf )
+        ch_pred = UCSC_GTFTOGENEPRED.out.genepred
+        ch_versions = ch_versions.mix(UCSC_GTFTOGENEPRED.out.versions)
+
+        UCSC_GENEPREDTOBED ( ch_pred )
+        ch_rseqc_bed = UCSC_GENEPREDTOBED.out.bed
+        ch_versions = ch_versions.mix(UCSC_GENEPREDTOBED.out.versions)
+    }
     
     //
     // MODULE: Run SEQKIT_SPLIT2
@@ -185,7 +222,7 @@ workflow NOVAST {
         //.set { ch_split_flexiplex_fastq }
 
     ch_versions = ch_versions.mix(RUN_FLEXIPLEX.out.versions)
-    
+    // TODO: Maybe merge the files only after alignment and doing the tagging with flexiformatter
     //
     // MODULE: CATFASTQ
     //  
@@ -197,6 +234,32 @@ workflow NOVAST {
     // Set channel
     CAT_FASTQ_SEQSPLIT.out.reads
         | set { ch_merged_flexiplex_fastq}
+    
+    //
+    // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post flexiplex
+    //
+    ch_fastqc_multiqc_post_flexiplex = Channel.empty()
+    ch_seqkit_stats_post = Channel.empty()
+    if (!params.skip_qc){
+        FASTQC_NANOPLOT_POST_FLEXIPLEX (
+            ch_cat_fastq,
+            params.skip_nanoplot,
+            params.skip_toulligqc,
+            params.skip_fastqc
+        )
+
+        ch_fastqc_multiqc_post_flexiplex = FASTQC_NANOPLOT_POST_FLEXIPLEX.out.fastqc_multiqc.ifEmpty([])
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_POST_FLEXIPLEX.out.nanoplot_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_POST_FLEXIPLEX.out.toulligqc_version.first().ifEmpty(null))
+        ch_versions = ch_versions.mix(FASTQC_NANOPLOT_POST_FLEXIPLEX.out.fastqc_version.first().ifEmpty(null))
+
+        SEQKIT_STATS_POST (
+            ch_cat_fastq
+        )
+        ch_seqkit_stats_post = SEQKIT_STATS_POST.out.stats
+        ch_versions = ch_versions.mix(SEQKIT_STATS_POST.out.versions.first().ifEmpty(null))
+    }
+    
     
     //
     // MODULE: Run MINIMAP2_INDEX
@@ -252,7 +315,17 @@ workflow NOVAST {
     ch_minimap_sorted_idxstats = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.idxstats
     ch_versions = ch_versions.mix(BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.versions)
     
-
+    
+    //
+    // MODULE: RSeQC read distribution for BAM files (unfiltered for QC purposes)
+    //
+    ch_rseqc_read_dist = Channel.empty()
+    if (!params.skip_qc && !params.skip_rseqc) {
+        RSEQC_READDISTRIBUTION ( ch_minimap_sorted_bam, ch_rseqc_bed )
+        ch_rseqc_read_dist = RSEQC_READDISTRIBUTION.out.txt
+        ch_versions = ch_versions.mix(RSEQC_READDISTRIBUTION.out.versions)
+    }
+    
     //
     // MODULE: NanoComp for BAM files (unfiltered for QC purposes)
     //
@@ -262,7 +335,7 @@ workflow NOVAST {
     if (!params.skip_qc && !params.skip_bam_nanocomp) {
 
         NANOCOMP_BAM (
-            ch_tagged_bam
+            ch_minimap_sorted_bam
                 .collect{it[1]}
                 .map{
                     [ [ 'id': 'nanocomp_bam.' ] , it ]
@@ -280,29 +353,36 @@ workflow NOVAST {
     // MODULE: Run UMITOOLS_DEDUP
     //  
     UMITOOLS_DEDUP (
-        ch_tagged_bam.join(ch_bai, by: [0]),
+        ch_minimap_sorted_bam.join(ch_minimap_sorted_bai, by: [0]),
         true
     )
     ch_versions = ch_versions.mix(UMITOOLS_DEDUP.out.versions)
     UMITOOLS_DEDUP.out.bam
         | set { ch_deduped_bam }
 
-    
+
     //
-    // MODULE: Run SAMTOOLS_INDEX_POSTDEDUP
-    //
-    SAMTOOLS_INDEX (
-        ch_deduped_bam
+    // SUBWORKFLOW: BAM_SORT_STATS_SAMTOOLS
+    // 
+    BAM_SORT_STATS_SAMTOOLS_DEDUP (
+        ch_deduped_bam,
+        fasta
     )
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions)
-    SAMTOOLS_INDEX.out.bai
-        | set { ch_dedup_bai }
+
+    ch_dedup_sorted_bam = BAM_SORT_STATS_SAMTOOLS_DEDUP.out.bam
+    ch_dedup_sorted_bai = BAM_SORT_STATS_SAMTOOLS_DEDUP.out.bai
+
+    // these stats go for multiqc
+    ch_dedup_sorted_stats = BAM_SORT_STATS_SAMTOOLS_DEDUP.out.stats
+    ch_dedup_sorted_flagstat = BAM_SORT_STATS_SAMTOOLS_DEDUP.out.flagstat
+    ch_dedup_sorted_idxstats = BAM_SORT_STATS_SAMTOOLS_DEDUP.out.idxstats
+    ch_versions = ch_versions.mix(BAM_SORT_STATS_SAMTOOLS_DEDUP.out.versions) 
     
-    ch_deduped_bam.join(ch_dedup_bai, by: [0])
-        | set { ch_deduped_bam_bai }
+    //
+    // MODULE: Isoquant
+    //
     
-    //ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    //ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    
 
     //
     // Collate and save software versions
@@ -321,7 +401,7 @@ workflow NOVAST {
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_config)
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_custom_config.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-        ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_fastqc_multiqc_pretrim.collect().ifEmpty([]))
+        ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_fastqc_multiqc_pre_flexiplex.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_nanocomp_fastq_txt.collect{it[1]}.ifEmpty([]))
 
         MULTIQC_RAWQC (
@@ -342,11 +422,14 @@ workflow NOVAST {
         ch_multiqc_finalqc_files = Channel.empty()
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_multiqc_config)
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_multiqc_custom_config.collect().ifEmpty([]))
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-
-        //ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_postrim.collect().ifEmpty([]))
-        //ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_postextract.collect().ifEmpty([]))
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml')) // TODO: check if the ifempty needs to be removed
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect().ifEmpty([])) // TODO: check if the ifempty needs to be removed
+ 
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_pre_flexiplex.collect().ifEmpty([]))
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_seqkit_stats_pre.collect({it[1]}).ifEmpty([]))
+        
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_post_flexiplex.collect().ifEmpty([]))
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_seqkit_stats_post.collect({it[1]}).ifEmpty([]))
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_minimap_sorted_stats.collect{it[1]}.ifEmpty([]))
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_minimap_sorted_flagstat.collect{it[1]}.ifEmpty([]))
@@ -354,17 +437,14 @@ workflow NOVAST {
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_rseqc_read_dist.collect{it[1]}.ifEmpty([]))
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_nanocomp_bam_txt.collect{it[1]}.ifEmpty([]))
 
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_tagged_sorted_flagstat.collect{it[1]}.ifEmpty([]))
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_tagged_sorted_idxstats.collect{it[1]}.ifEmpty([]))
-
         if (!params.skip_dedup) {
             ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_dedup_sorted_flagstat.collect{it[1]}.ifEmpty([]))
             ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_dedup_sorted_idxstats.collect{it[1]}.ifEmpty([]))
         }
-
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_read_counts.collect().ifEmpty([]))
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_gene_stats_combined.collect().ifEmpty([]))
-        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_transcript_stats_combined.collect().ifEmpty([]))
+        
+        // TODO: Add this after Isoquant
+        //ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_gene_stats_combined.collect().ifEmpty([]))
+        //ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_transcript_stats_combined.collect().ifEmpty([]))
 
         MULTIQC_FINALQC (
             ch_multiqc_finalqc_files.collect(),
@@ -375,7 +455,7 @@ workflow NOVAST {
             []
         )
         ch_multiqc_report = MULTIQC_FINALQC.out.report
-        ch_versions    = ch_versions.mix(MULTIQC_FINALQC.out.versions)
+        ch_versions       = ch_versions.mix(MULTIQC_FINALQC.out.versions)
     }
 
     emit:
