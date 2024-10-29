@@ -41,6 +41,7 @@ include { NANOCOMP as NANOCOMP_BAM                  } from '../modules/nf-core/n
 include { RSEQC_READDISTRIBUTION                    } from '../modules/nf-core/rseqc/readdistribution/main'
 include { UCSC_GTFTOGENEPRED                        } from "../modules/local/ucsc_gtftogenepred"
 include { UCSC_GENEPREDTOBED                        } from "../modules/local/ucsc_genepredtobed"
+include { ISOQUANT                                  } from "../modules/local/isoquant"
 
 /*
  * Import subworkflows
@@ -315,7 +316,6 @@ workflow NOVAST {
     ch_minimap_sorted_idxstats = BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.idxstats
     ch_versions = ch_versions.mix(BAM_SORT_STATS_SAMTOOLS_MINIMAP.out.versions)
     
-    
     //
     // MODULE: RSeQC read distribution for BAM files (unfiltered for QC purposes)
     //
@@ -381,7 +381,16 @@ workflow NOVAST {
     //
     // MODULE: Isoquant
     //
-    
+    ISOQUANT (
+        ch_dedup_sorted_bam.join(ch_dedup_sorted_bai, by: [0]),
+        gtf,
+        fasta,
+        fai,
+        'tag:CB'
+    )
+    ch_gene_count_mtx = ISOQUANT.out.gene_count_mtx
+    ch_transcript_count_mtx = ISOQUANT.out.transcript_count_mtx
+    ch_versions = ch_versions.mix(ISOQUANT.out.versions)
     
 
     //
