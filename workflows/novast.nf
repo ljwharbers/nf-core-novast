@@ -97,7 +97,7 @@ workflow NOVAST {
     
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - Pre Flexiplex
-    //
+    // Credits for this subworkflow go to nf-core/scnanoseq developers
     ch_fastqc_multiqc_pre_flexiplex = Channel.empty()
     ch_seqkit_stats_pre = Channel.empty()
     if (!params.skip_qc){
@@ -122,7 +122,7 @@ workflow NOVAST {
     }
     //
     // MODULE: NanoComp for FastQ files
-    //
+    // Credits for this module go to nf-core/scnanoseq developers
     ch_cat_fastq
         .collect{it[1]}
         .map {
@@ -165,9 +165,8 @@ workflow NOVAST {
     
     //
     // MODULE: Generate bed file from input gtf for rseqc
-    //
+    // Credits for this module go to nf-core/scnanoseq developers
 
-    // come back to this once intron work is finished (likely input will be fine)
     ch_pred = Channel.empty()
     ch_rseqc_bed = Channel.empty()
     if (!params.skip_qc && !params.skip_rseqc) {
@@ -238,7 +237,7 @@ workflow NOVAST {
     
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post flexiplex
-    //
+    // Credits for this subworkflow go to nf-core/scnanoseq developers
     ch_fastqc_multiqc_post_flexiplex = Channel.empty()
     ch_seqkit_stats_post = Channel.empty()
     if (!params.skip_qc){
@@ -302,7 +301,7 @@ workflow NOVAST {
     
     //
     // SUBWORKFLOW: BAM_SORT_STATS_SAMTOOLS
-    // 
+    // Credits for this subworkflow go to nf-core/scnanoseq developers
     BAM_SORT_STATS_SAMTOOLS_MINIMAP (
         ch_tagged_bam,
         fasta )
@@ -404,7 +403,7 @@ workflow NOVAST {
 
         //
         // MODULE: MultiQC for raw data
-        //
+        // Next section adapted from nf-core/scnanoseq
 
         ch_multiqc_rawqc_files = Channel.empty()
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_config)
