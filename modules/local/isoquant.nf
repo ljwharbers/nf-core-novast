@@ -15,9 +15,9 @@ process ISOQUANT {
     val group_category
 
     output:
-    tuple val(meta), path("*.gene_counts.tsv")      , emit: gene_count_mtx
-    tuple val(meta), path("*.transcript_counts.tsv"), emit: transcript_count_mtx
-    path "versions.yml"                             , emit: versions
+    tuple val(meta), path("*.gene*_counts.tsv")         , emit: gene_count_mtx
+    tuple val(meta), path("*.transcript*_counts.tsv")   , emit: transcript_count_mtx
+    path "versions.yml"                                 , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -38,10 +38,11 @@ process ISOQUANT {
                     --genedb $gtf \\
                     --bam $bam \\
                     -o .
-
-        mv OUT/OUT.gene_counts.tsv ${prefix}.gene_counts.tsv
-        mv OUT/OUT.transcript_counts.tsv ${prefix}.transcript_counts.tsv
-
+        
+        # Move output files from OUT/ to base directory and changing OUT. to their prefix
+        find OUT -type f -name 'OUT.*' -exec sh -c 'mv "\$0" "\${0%/*}/${prefix}.\${0##*/OUT.}"' {} \\;
+        mv OUT/${prefix}* .
+        
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             isoquant: \$(isoquant.py -v | sed 's#IsoQuant ##')
@@ -60,12 +61,10 @@ process ISOQUANT {
                     -o . \\
                     --read_group $group_category
 
-        mv OUT/OUT.gene_grouped_counts.tsv ${prefix}.gene_counts.tsv
-        mv OUT/OUT.transcript_grouped_counts.tsv ${prefix}.transcript_counts.tsv
-
-        sed -i "1s/#//" ${prefix}.gene_counts.tsv
-        sed -i "1s/#//" ${prefix}.transcript_counts.tsv
-
+        # Move output files from OUT/ to base directory and changing OUT. to their prefix
+        find OUT -type f -name 'OUT.*' -exec sh -c 'mv "\$0" "\${0%/*}/${prefix}.\${0##*/OUT.}"' {} \\;
+        mv OUT/${prefix}* .
+        
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             isoquant: \$(isoquant.py -v | sed 's#IsoQuant ##')
