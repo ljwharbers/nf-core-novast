@@ -39,7 +39,7 @@
                 },
                 "ed_adapter_3prime": {
                     "type": "integer",
-                    "default": 4,
+                    "default": 16,
                     "description": "Edit distance for 3' adapter matching"
                 },
                 "barcode_length": {
@@ -84,7 +84,9 @@
                     "type": "string",
                     "format": "directory-path",
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
+                    "fa_icon": "fas fa-folder-open",
+                    "default": "./results",
+                    "help_text": ""
                 },
                 "email": {
                     "type": "string",
@@ -376,6 +378,49 @@
         },
         "skip_fastqc": {
             "type": "boolean"
+        },
+        "skip_multiqc": {
+            "type": "boolean"
+        },
+        "skip_fastq_nanocomp": {
+            "type": "boolean"
+        },
+        "skip_bam_nanocomp": {
+            "type": "boolean"
+        },
+        "skip_rseqc": {
+            "type": "boolean"
+        },
+        "skip_seqkit_stats": {
+            "type": "boolean"
+        },
+        "split_fastq_n": {
+            "type": "integer",
+            "default": 24
+        },
+        "spacer_3prime": {
+            "type": "string",
+            "default": "TCTTGTGACTACAGCACCCTCGACTCTCGCTTTTTTTT"
+        },
+        "stranded": {
+            "type": "string"
+        },
+        "skip_save_minimap2_index": {
+            "type": "boolean"
+        },
+        "save_secondary_alignment": {
+            "type": "boolean"
+        },
+        "kmer_size": {
+            "type": "integer",
+            "default": 14
+        },
+        "skip_dedup": {
+            "type": "boolean"
+        },
+        "retain_introns": {
+            "type": "boolean",
+            "default": true
         }
     }
 }
