@@ -18,7 +18,7 @@ process FLEXIPLEX {
     val(umi_length)
 
     output:
-    tuple val(meta), path("*flexiplex.fastq")        , emit: reads
+    tuple val(meta), path("*flexiplex.fastq")           , emit: reads
     tuple val(meta), path("bc_*_reads_barcodes.txt")    , emit: barcodes
     tuple val(meta), path("umi_*_reads_barcodes.txt")   , emit: umis
     path "versions.yml"                                 , emit: versions

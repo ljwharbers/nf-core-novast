@@ -120,6 +120,7 @@ workflow NOVAST {
         ch_versions = ch_versions.mix(SEQKIT_STATS_PRE.out.versions.first().ifEmpty(null))
         
     }
+    
     //
     // MODULE: NanoComp for FastQ files
     // Credits for this module go to nf-core/scnanoseq developers
